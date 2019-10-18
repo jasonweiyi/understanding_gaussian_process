@@ -30,6 +30,21 @@ def km(xs1: np.ndarray, xs2: np.ndarray, l: float, sigma: float) -> np.ndarray:
     return result
 
 
+def posterior(X_star, X, Y, l, sigma, noise_sigma):
+    k_X_X = km(X, X, l, sigma)
+    k_X_star_X = km(X_star, X, l, sigma)
+    k_X_star_X_star = km(X_star, X_star, l, sigma)
+
+    if noise_sigma is not None:
+        noise_cov = np.eye(len(X)) * (noise_sigma**2)
+    else:
+        noise_cov = 0
+    inv = np.linalg.inv(k_X_X + noise_cov)
+
+    mean = np.matmul(np.matmul(k_X_star_X, inv), Y)
+    var = k_X_star_X_star - np.matmul(np.matmul(k_X_star_X, inv), k_X_star_X.T)
+    return mean, var
+
 #print(kernel(x1=1, x2=2, l=2, sigma=1))
 
 n = 50
