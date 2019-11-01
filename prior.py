@@ -1,3 +1,4 @@
+from typing import Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
@@ -6,105 +7,137 @@ from utils import multiple_formatter
 from functools import partial
 
 
-def kernel(x1: float, x2: float, l: float, sigma: float) -> float:
-    result = sigma**2 * np.exp(-0.5 * (x1-x2)**2 / (l**2))
-    return result
 
+class GP:
+    def __init__(self, lengthscale: float, signal_variance: float, noise_variance: float, constant: float=0) -> None:
+        self.lengthscale = lengthscale
+        self.signal_variance = signal_variance
+        self.noise_variance = noise_variance
+        self.constant = constant
 
-def m(xs: np.ndarray) -> np.ndarray:
-    """
-    Zero mean function.
-    :param xs: the X locations.
-    :return: the mean vector for those locations.
-    """
-    return np.zeros(xs.shape)
+    def kernel(self, X1: float, X2: float) -> float:
+        result = np.square(self.signal_variance) * np.exp(-0.5 * np.square((X1 - X2) / self.lengthscale))
+        return result + self.constant
 
+    def k(self, Xs1: np.ndarray, Xs2: np.ndarray) -> np.ndarray:
+        assert len(list(Xs1.shape)) == 1
+        assert len(list(Xs2.shape)) == 1
+        result = np.zeros(shape=(Xs1.shape[0], Xs2.shape[0]))
+        for row_id, X1 in enumerate(Xs1):
+            for col_id, X2 in enumerate(Xs2):
+                result[row_id, col_id] = self.kernel(X1, X2)
+        return result
 
-def km(xs1: np.ndarray, xs2: np.ndarray, l: float, sigma: float) -> np.ndarray:
-    assert len(list(xs1.shape)) == 1
-    assert len(list(xs2.shape)) == 1
-    result = np.zeros(shape=(xs1.shape[0], xs2.shape[0]))
-    for row_id, x1 in enumerate(xs1):
-        for col_id, x2 in enumerate(xs2):
-            result[row_id, col_id] = kernel(x1, x2, l, sigma)
-    return result
+    def posterior(self, X: np.ndarray, Y: np.ndarray, X_star: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        n = len(X)
+        n_star = len(X_star)
 
+        assert Y.shape == (n,)
 
-def posterior(X_star, X, Y, l, sigma, noise_sigma):
-    k_X_X = km(X, X, l, sigma)
-    k_X_star_X = km(X_star, X, l, sigma)
-    k_X_star_X_star = km(X_star, X_star, l, sigma)
+        k_X_X = self.k(X, X)
+        assert k_X_X.shape == (n, n)
 
-    if noise_sigma is not None:
-        noise_cov = np.eye(len(X)) * (noise_sigma**2)
-    else:
-        noise_cov = 0
-    inv = np.linalg.inv(k_X_X + noise_cov)
+        inv = self.inv(X)
+        assert inv.shape == (n, n)
 
-    mean = np.matmul(np.matmul(k_X_star_X, inv), Y)
-    var = k_X_star_X_star - np.matmul(np.matmul(k_X_star_X, inv), k_X_star_X.T)
-    return mean, var
+        k_X_star_X = self.k(X_star, X)
+        assert k_X_star_X.shape == (n_star, n)
+        weights = k_X_star_X
 
-#print(kernel(x1=1, x2=2, l=2, sigma=1))
+        mean = np.matmul(np.matmul(k_X_star_X, inv), Y)
+        assert mean.shape == (n_star,)
 
-n = 50
+        k_X_star_X_star = self.k(X_star, X_star)
+        assert k_X_star_X_star.shape == (n_star, n_star)
 
-X = np.linspace(0, 2*np.pi, n)
-Y = np.sin(X)
-noise = np.random.normal(0, 0.1, n)
-Y += noise
+        variance = k_X_star_X_star - np.matmul(np.matmul(k_X_star_X, inv), k_X_star_X.T)
+        assert variance.shape == (n_star, n_star)
 
+        return mean, variance, weights
 
-colors = ['red', 'blue']
-for index, l in enumerate([np.pi/100, np.pi/2]):
+    def inv(self, X):
+        n = len(X)
+        sigma = np.eye(len(X)) * np.square(self.noise_variance)
+        assert sigma.shape == (n, n)
 
-    sigma = 1
+        result = np.linalg.inv(self.k(X, X) + sigma)
+        assert result.shape == (n, n)
+        return result
 
-    k = partial(km, l=l, sigma=sigma)
+    def data_fit_term(self, X, Y):
+        result = - 0.5 * np.matmul(np.matmul(Y.T, self.inv(X)), Y)
+        return result
 
-    # plt.scatter(X, Y)
-    # plt.show()
+    def model_complexity_term(self, X):
+        k_X_X = self.k(X, X)
+        noise_cov = np.eye(len(X)) * np.square(self.noise_variance)
+        det = np.linalg.det(k_X_X + noise_cov)
+        result = -0.5 * np.log(det)
+        return result
 
+    def objective(self, X, Y):
+        return self.data_fit_term(X, Y) + self.model_complexity_term(X)
 
-    samples = []
-    probs = []
-    sample_number = 1
-    for i in range(sample_number):
-        sample = np.random.multivariate_normal(m(X), k(X, X))
-        samples.append(sample)
+        # data_fit = data_fit_term(X, Y, lengthscale, sigma, noise_sigma)
 
-        prob = multivariate_normal.pdf(
-            sample, mean=m(X), cov=k(X, X) + np.eye(n) * 1e-6,
-            allow_singular=False)
-        probs.append(prob)
-
-        # plt.plot(X, sample)
-
-
-    probs = np.array(probs)
-    normalized_prob = probs - np.min(probs)
-    normalized_prob /= np.max(normalized_prob)
-
-    print(normalized_prob)
-
-    for prob, sample in zip(normalized_prob, samples):
-        # alpha = prob * 10
-        alpha = 1
-        plt.plot(X, sample, alpha=alpha, markersize=5, marker='o', color=colors[index], label='l={}π'.format(0.01 if index==0 else 0.5))
+#     model_complexity = model_complexity_term(X, Y, lengthscale, sigma, noise_sigma)
 
 
 
 
-ax = plt.gca()
-ax.legend()
-ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
-ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
-ax.xaxis.set_major_formatter(plt.FuncFormatter(multiple_formatter()))
 
-plt.show()
-
-# xs = np.array([1, 2, 3, 4])
-# xs1 = np.array([1, 2, 3])
-# xs2 = np.array([1, 2, 3, 4])
-# print(kernel_matrix(xs1, xs2, l=2, sigma=1))
-
+# def kernel(x1: float, x2: float, l: float, sigma: float) -> float:
+#     result = sigma**2 * np.exp(-0.5 * np.square(x1-x2) / np.square(l))
+#     return result
+#
+#
+# def k(xs1: np.ndarray, xs2: np.ndarray, l: float, sigma: float) -> np.ndarray:
+#     assert len(list(xs1.shape)) == 1
+#     assert len(list(xs2.shape)) == 1
+#     result = np.zeros(shape=(xs1.shape[0], xs2.shape[0]))
+#     for row_id, x1 in enumerate(xs1):
+#         for col_id, x2 in enumerate(xs2):
+#             result[row_id, col_id] = kernel(x1, x2, l, sigma)
+#     return result
+#
+#
+# def posterior(X_star, X, Y, l, sigma, noise_sigma):
+#     k_X_X = k(X, X, l, sigma)
+#     k_X_star_X = k(X_star, X, l, sigma)
+#     k_X_star_X_star = k(X_star, X_star, l, sigma)
+#
+#     if noise_sigma is not None:
+#         noise_cov = np.eye(len(X)) * (noise_sigma**2)
+#     else:
+#         noise_cov = 0
+#     inv = np.linalg.inv(k_X_X + noise_cov)
+#
+#     mean = np.matmul(np.matmul(k_X_star_X, inv), Y)
+#     var = k_X_star_X_star - np.matmul(np.matmul(k_X_star_X, inv), k_X_star_X.T)
+#     additional = {
+#         'k_X_star_X': k_X_star_X
+#     }
+#     return mean, var, additional
+#
+#
+# def data_fit_term(X, Y, l, sigma, noise_sigma):
+#     k_X_X = k(X, X, l, sigma)
+#     if noise_sigma is not None:
+#         noise_cov = np.eye(len(X)) * (noise_sigma**2)
+#     else:
+#         noise_cov = 0
+#     inv = np.linalg.inv(k_X_X + noise_cov)
+#     result = - 0.5 * np.matmul(np.matmul(Y.T, inv), Y)
+#     return result
+#
+#
+# def model_complexity_term(X, Y, l, sigma, noise_sigma):
+#     k_X_X = k(X, X, l, sigma)
+#     if noise_sigma is not None:
+#         noise_cov = np.eye(len(X)) * (noise_sigma ** 2)
+#     else:
+#         noise_cov = 0
+#     det = np.linalg.det(k_X_X + noise_cov)
+#
+#     result = -0.5 * np.log(det)
+#     return result
