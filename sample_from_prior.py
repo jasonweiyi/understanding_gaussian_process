@@ -1,24 +1,47 @@
-from prior import GP
+from gp import GP, ExponentialSquaredKernel
 import numpy as np
+from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
+from utils import multiple_formatter
 
-
-lengthscale = 1.
+# Set values to model parameters.
+lengthscale = 1
 signal_variance = 1.
 noise_variance = 0.1
-gp1 = GP(lengthscale=lengthscale, signal_variance=signal_variance, noise_variance=noise_variance, constant=0)
-gp2 = GP(lengthscale=lengthscale, signal_variance=signal_variance, noise_variance=noise_variance, constant=1)
 
+# Create the GP.
+kernel = ExponentialSquaredKernel(
+    lengthscale=lengthscale, signal_variance=signal_variance)
+gp = GP(kernel=kernel, noise_variance=noise_variance)
 n = 60
-X = np.linspace(0, 2*np.pi, n)
+x = np.linspace(0, 2 * np.pi, n)
+mean = np.zeros(n)
+cov = gp.k(x, x)
 
+# Draw samples from the GP prior.
+probabilities = []
+samples = []
+jitter = np.eye(n) * 1e-6
+for _ in range(50):
+    y = multivariate_normal.rvs(mean=mean, cov=cov)
+    # Add a jitter to the covariance matrix for numerical stability.
+    prob = multivariate_normal.pdf(y, mean=mean, cov=cov + jitter)
 
-for gp, color in zip([gp1, gp2], ['blue', 'red']):
-    mean = np.zeros(n)
-    cov = gp.k(X, X)
-    for s in range(10):
-        y = np.random.multivariate_normal(mean, cov, 1)
-        plt.plot(X, y[0], color=color)
+    samples.append(y)
+    probabilities.append(prob)
+
+# Normalize sample probabilities into [0, 1].
+probabilities = np.array(probabilities)
+min_prob, max_prob = np.min(probabilities), np.max(probabilities)
+probabilities = (probabilities - min_prob) / (max_prob - min_prob)
+
+# Plotting.
+ax = plt.gca()
+for y, prob in zip(samples, probabilities):
+    ax.plot(x, y, alpha=prob)
+
+ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
+ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+ax.xaxis.set_major_formatter(plt.FuncFormatter(multiple_formatter()))
+
 plt.show()
-
-
