@@ -9,7 +9,7 @@ class Kernel:
         raise NotImplementedError()
 
 
-class ExponentialSquaredKernel(Kernel):
+class SquaredExponentialKernel(Kernel):
     def __init__(self, lengthscale: float, signal_variance: float) -> None:
         self.lengthscale = lengthscale
         self.signal_variance = signal_variance
