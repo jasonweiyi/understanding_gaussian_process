@@ -1,4 +1,4 @@
-from gp import GP, ExponentialSquaredKernel
+from gp import GP, SquaredExponentialKernel
 import numpy as np
 from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ signal_variance = 1.
 noise_variance = 0.1
 
 # Create the GP.
-kernel = ExponentialSquaredKernel(
+kernel = SquaredExponentialKernel(
     lengthscale=lengthscale, signal_variance=signal_variance)
 gp = GP(kernel=kernel, noise_variance=noise_variance)
 n = 60
