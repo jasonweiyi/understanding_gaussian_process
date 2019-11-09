@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from gp import GP, ExponentialSquaredKernel
+from gp import GP, SquaredExponentialKernel
 
 # Load the image of the wave.
 img = plt.imread("wave.jpg")
@@ -44,7 +44,7 @@ lengthscale = 40
 signal_variance = 3.
 noise_variance = 0.1
 X_star = np.linspace(0, 960, 50)
-kernel = ExponentialSquaredKernel(lengthscale=lengthscale, signal_variance=signal_variance)
+kernel = SquaredExponentialKernel(lengthscale=lengthscale, signal_variance=signal_variance)
 gp = GP(kernel, noise_variance=noise_variance)
 post_m, post_var, weights = gp.posterior(X, Y, X_star)
 
