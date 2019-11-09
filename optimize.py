@@ -1,5 +1,5 @@
 from generate_training_data import generate_points
-from gp import ExponentialSquaredKernel, GP
+from gp import SquaredExponentialKernel, GP
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -15,7 +15,7 @@ lengthscales = []
 for lengthscale in np.linspace(0, 2.9, 30):
     lengthscale += 0.1
 
-    kernel = ExponentialSquaredKernel(
+    kernel = SquaredExponentialKernel(
         lengthscale=lengthscale, signal_variance=1.)
 
     gp = GP(kernel, noise_variance=0.1)
