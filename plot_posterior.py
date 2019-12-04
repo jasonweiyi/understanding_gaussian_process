@@ -1,6 +1,6 @@
 import numpy as np
 from generate_training_data import generate_points
-from gp import GP, ExponentialSquaredKernel
+from gp import GP, SquaredExponentialKernel
 import matplotlib.pyplot as plt
 from utils import multiple_formatter
 
@@ -22,7 +22,7 @@ X_star = np.linspace(training_start, training_end + 4*np.pi, 200)
 
 X_star_few = np.linspace(training_start, training_end + 0*np.pi, 50)
 # Compute posterior mean and variance.
-kernel = ExponentialSquaredKernel(lengthscale=lengthscale, signal_variance=signal_variance)
+kernel = SquaredExponentialKernel(lengthscale=lengthscale, signal_variance=signal_variance)
 gp = GP(kernel=kernel, noise_variance=noise_variance)
 post_m, post_variance, weights = gp.posterior(X, Y, X_star)
 
