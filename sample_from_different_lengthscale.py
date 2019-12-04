@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from utils import multiple_formatter
 
 # Set values to model parameters.
-lengthscale = 0.1
+lengthscale = 0.01
 signal_variance = 10.
 noise_variance = 0.1
 
@@ -22,7 +22,7 @@ cov = gp.k(x, x)
 probabilities = []
 samples = []
 jitter = np.eye(n) * 1e-6
-for _ in range(20):
+for _ in range(1):
     y = multivariate_normal.rvs(mean=mean, cov=cov)
     # Add a jitter to the covariance matrix for numerical stability.
     prob = multivariate_normal.pdf(y, mean=mean, cov=cov + jitter)
@@ -38,7 +38,7 @@ probabilities = (probabilities - min_prob) / (max_prob - min_prob)
 # Plotting.
 ax = plt.gca()
 for y, prob in zip(samples, probabilities):
-    ax.plot(x, y, alpha=prob * 2)
+    ax.plot(x, y, alpha=1)
 
 ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
 ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))

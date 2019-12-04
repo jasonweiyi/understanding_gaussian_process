@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def generate_points(start, end, section=7, quota=[5, 10], noise=0.1):
@@ -27,3 +28,9 @@ def generate_points(start, end, section=7, quota=[5, 10], noise=0.1):
     y = np.sin(x) + np.random.normal(scale=noise, size=len(x))
 
     return x, y
+
+
+# for noise in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 3, 4, 5]:
+#     x, y = generate_points(0, np.pi*2, quota=[5, 5], noise=noise)
+#     plt.plot(x, y)
+#     plt.show()
